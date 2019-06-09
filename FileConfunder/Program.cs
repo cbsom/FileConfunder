@@ -13,7 +13,7 @@ namespace FileConfunder
         {
             if (args.Length < 1)
             {
-                Console.WriteLine("confund fileOrFolderPath [-confund] [-confundall]");
+                Console.WriteLine("fc fileOrFolderPath [-confund] [-confundall]");
                 return;
             }
             string path = args[0];

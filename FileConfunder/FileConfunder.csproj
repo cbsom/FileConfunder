@@ -7,7 +7,7 @@
     <ProjectGuid>{11E4908A-80F5-4C7E-9994-379927B5FF28}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>FileConfunder</RootNamespace>
-    <AssemblyName>confund</AssemblyName>
+    <AssemblyName>fc</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
