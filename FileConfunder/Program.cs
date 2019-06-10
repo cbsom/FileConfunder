@@ -9,35 +9,46 @@ namespace FileConfunder
     {
         private const int BUFFER_LENGTH = 2048;
         private const int OFFSET = 8;
+        private const string HELP_TEXT = @"USAGE: fc fileOrFolderPath [-action action]
+    If ""-action"" is not suplied, the default action is ""run"".
+    The optional ""action"" argument value can be one of the following:    
+        ""run"" unconfund then run. When app exits, reconfunds the file.        
+        ""confund"" confund the given file 
+        ""unconfund"" unconfund the given file 
+        ""confundall"" confund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed. 
+        ""unconfundall"" unconfund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed.
+        ""help"" show this help text
+    OTHER OPTIONAL ARGUMENTS
+        [-runwith *] for use with the action ""run"". If  supplied, after unconfundation, the file will be run with the given path. Otherwise the path set in the config file is used.   
+        [-pattern *] for use with the action ""confundall"" or ""unconfundall"". If supplied, only those files matching the pattern will be processed.";
 
         static void Main(string[] args)
         {
             if (args.Length < 1)
             {
-                Console.WriteLine(@"USAGE: fc fileOrFolderPath 
-    The default action is -run.
-    OPTIONS
-        [-run] unconfund then run the file with the application set in the config file. When app exits, reconfunds the file.
-        [-confund] confund the given file 
-        [-unconfund] unconfund the given file 
-        [-confundall] confund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed. 
-        [-unconfundall] unconfund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed.
-        [-pattern *] for use with -confundall or -unconfundall. If -pattern is supplied, only those files matching the pattern will be processed.");
+                Console.WriteLine(HELP_TEXT);
                 return;
             }
             string path = args[0],
-                   action = args.Length > 1
-                       ? args[1].TrimStart(new char[] { '-' }).ToLower()
-                       : "run",
-                   pattern = "*";
+                   action = "run",
+                   pattern = "*",
+                   runWith = Properties.Settings.Default.OpenWithPath;
 
+            if (args.Contains("-action"))
+            {
+                action = args[Array.IndexOf(args, "-action") + 1];
+            }
+            if (args.Contains("-runwith"))
+            {
+                runWith = args[Array.IndexOf(args, "-runwith") + 1];
+            }
             if (args.Contains("-pattern"))
             {
                 pattern = args[Array.IndexOf(args, "-pattern") + 1];
-            };
+            }
 
-            if ((action.EndsWith("all") && !Directory.Exists(path)) ||
-                (!action.EndsWith("all") && !File.Exists(path)))
+            if (action != "help" && ((action.EndsWith("all") && !Directory.Exists(path)) ||
+                (!action.EndsWith("all") && !File.Exists(path))))
             {
                 Console.WriteLine("{0} cannot be found", path);
                 return;
@@ -49,7 +60,9 @@ namespace FileConfunder
                     foreach (var f in Directory.GetFiles(path, pattern))
                     {
                         Console.WriteLine("{0} has {1} confunded", f,
-                            confundFile(f) ? "been successfully" : "FAILED to be");
+                            ConfundFile(f) 
+                                ? "been successfully" 
+                                : "FAILED to be");
                     }
                     Console.WriteLine("{0} has been processed", path);
                     break;
@@ -57,38 +70,45 @@ namespace FileConfunder
                     foreach (var f in Directory.GetFiles(path, pattern))
                     {
                         Console.WriteLine("{0} has {1} unconfunded", f,
-                            confundFile(f, true) ? "been successfully" : "FAILED to be");
+                            ConfundFile(f, true) 
+                                ? "been successfully" 
+                                : "FAILED to be");
                     }
                     Console.WriteLine("{0} has been processed", path);
                     break;
                 case "confund":
                     Console.WriteLine("{0} has {1} confunded", path,
-                        confundFile(path) ? "been successfully" : "FAILED to be");
+                        ConfundFile(path) 
+                            ? "been successfully" 
+                            : "FAILED to be");
                     break;
                 case "unconfund":
                     Console.WriteLine("{0} has {1} unconfunded", path,
-                        confundFile(path, true) ? "been successfully" : "FAILED to be");
+                        ConfundFile(path, true) 
+                            ? "been successfully" 
+                            : "FAILED to be");
                     break;
                 case "run":
-                    string openWithPath = Properties.Settings.Default.OpenWithPath;
-
-                    if (confundFile(path, true))
+                    if (ConfundFile(path, true))
                     {
                         Console.WriteLine("{0} has been successfully unconfunded", path);
-                        Console.WriteLine("Running {0} {1}", openWithPath, path);
-                        using (var pr = Process.Start(openWithPath, path))
+                        Console.WriteLine("Running {0} {1}", runWith, path);
+                        using (var pr = Process.Start(runWith, path))
                         {
                             pr.WaitForExit();
-                            Console.WriteLine("{0} has exited", Path.GetFileName(openWithPath));
+                            Console.WriteLine("{0} has exited", Path.GetFileName(runWith));
                             Console.WriteLine("Starting to reconfund {0}", path);
                         }
                         Console.WriteLine("{0} has {1} re-confunded", path,
-                            confundFile(path) ? "been successfully" : "FAILED to be");
+                            ConfundFile(path) ? "been successfully" : "FAILED to be");
                     }
                     else
                     {
                         Console.WriteLine("{0} cannot be unconfunded", path);
                     }
+                    break;
+                default:
+                    Console.WriteLine(HELP_TEXT);
                     break;
             }
 
@@ -96,7 +116,7 @@ namespace FileConfunder
             Console.ReadLine();
         }
 
-        private static bool confundFile(string path, bool unconfund = false)
+        private static bool ConfundFile(string path, bool unconfund = false)
         {
             bool success = false;
             FileInfo fi = new FileInfo(path);
@@ -108,10 +128,10 @@ namespace FileConfunder
                     byte[] buf = new byte[bufferLength];
                     file.Read(buf, 0, bufferLength);
                     buf = unconfund
-                        ? ChangeDataBack(buf)
-                        : ChangeData(buf);
+                        ? UngarbleData(buf)
+                        : GarbleData(buf);
                     file.Position = 0;
-                    file.Write(buf, 0, buf.Length);
+                    file.Write(buf, 0, bufferLength);
                     file.Close();
                     success = true;
                 }
@@ -120,40 +140,41 @@ namespace FileConfunder
             {
                 Console.Error.WriteLine(ex.Message);
             }
+
             return success;
         }
 
-        private static byte[] ChangeData(byte[] origData)
+        private static byte[] GarbleData(byte[] realData)
         {
-            byte[] changedData = new byte[origData.Length];
+            byte[] muckedData = new byte[realData.Length];
 
-            for (int i = 0; i < origData.Length; i++)
+            for (int i = 0; i < realData.Length; i++)
             {
-                if ((origData[i] + OFFSET) > Byte.MaxValue)
+                if ((realData[i] + OFFSET) > Byte.MaxValue)
                 {
-                    changedData[i] = (byte)(Byte.MinValue + Byte.MaxValue - changedData[i]);
+                    muckedData[i] = (byte)(Byte.MinValue + Byte.MaxValue - muckedData[i]);
                 }
                 else
                 {
-                    changedData[i] = (byte)(origData[i] + OFFSET);
+                    muckedData[i] = (byte)(realData[i] + OFFSET);
                 }
             }
-            return changedData;
+            return muckedData;
         }
 
-        private static byte[] ChangeDataBack(byte[] changedData)
+        private static byte[] UngarbleData(byte[] muckedData)
         {
-            byte[] origData = new byte[changedData.Length];
+            byte[] origData = new byte[muckedData.Length];
 
-            for (int i = 0; i < changedData.Length; i++)
+            for (int i = 0; i < muckedData.Length; i++)
             {
-                if ((changedData[i] - OFFSET) < Byte.MinValue)
+                if ((muckedData[i] - OFFSET) < Byte.MinValue)
                 {
-                    origData[i] = (byte)(Byte.MaxValue - Byte.MinValue + changedData[i]);
+                    origData[i] = (byte)(Byte.MaxValue - Byte.MinValue + muckedData[i]);
                 }
                 else
                 {
-                    origData[i] = (byte)(changedData[i] - OFFSET);
+                    origData[i] = (byte)(muckedData[i] - OFFSET);
                 }
             }
             return origData;
