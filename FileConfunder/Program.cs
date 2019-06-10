@@ -15,6 +15,7 @@ namespace FileConfunder
         ""run"" unconfund then run. When app exits, reconfunds the file.        
         ""confund"" confund the given file 
         ""unconfund"" unconfund the given file 
+        ""rununconfund"" unconfund then run. When app exits, does not reconfund the file.
         ""confundall"" confund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed. 
         ""unconfundall"" unconfund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed.
         ""help"" show this help text
@@ -60,8 +61,8 @@ namespace FileConfunder
                     foreach (var f in Directory.GetFiles(path, pattern))
                     {
                         Console.WriteLine("{0} has {1} confunded", f,
-                            ConfundFile(f) 
-                                ? "been successfully" 
+                            ConfundFile(f)
+                                ? "been successfully"
                                 : "FAILED to be");
                     }
                     Console.WriteLine("{0} has been processed", path);
@@ -70,37 +71,41 @@ namespace FileConfunder
                     foreach (var f in Directory.GetFiles(path, pattern))
                     {
                         Console.WriteLine("{0} has {1} unconfunded", f,
-                            ConfundFile(f, true) 
-                                ? "been successfully" 
+                            ConfundFile(f, true)
+                                ? "been successfully"
                                 : "FAILED to be");
                     }
                     Console.WriteLine("{0} has been processed", path);
                     break;
                 case "confund":
                     Console.WriteLine("{0} has {1} confunded", path,
-                        ConfundFile(path) 
-                            ? "been successfully" 
+                        ConfundFile(path)
+                            ? "been successfully"
                             : "FAILED to be");
                     break;
                 case "unconfund":
                     Console.WriteLine("{0} has {1} unconfunded", path,
-                        ConfundFile(path, true) 
-                            ? "been successfully" 
+                        ConfundFile(path, true)
+                            ? "been successfully"
                             : "FAILED to be");
                     break;
                 case "run":
+                case "rununconfund":
                     if (ConfundFile(path, true))
                     {
                         Console.WriteLine("{0} has been successfully unconfunded", path);
                         Console.WriteLine("Running {0} {1}", runWith, path);
                         using (var pr = Process.Start(runWith, path))
                         {
-                            pr.WaitForExit();
-                            Console.WriteLine("{0} has exited", Path.GetFileName(runWith));
-                            Console.WriteLine("Starting to reconfund {0}", path);
+                            if (action == "run")
+                            {
+                                pr.WaitForExit();
+                                Console.WriteLine("{0} has exited", Path.GetFileName(runWith));
+                                Console.WriteLine("Starting to reconfund {0}", path);
+                                Console.WriteLine("{0} has {1} re-confunded", path,
+                                    ConfundFile(path) ? "been successfully" : "FAILED to be");
+                            }
                         }
-                        Console.WriteLine("{0} has {1} re-confunded", path,
-                            ConfundFile(path) ? "been successfully" : "FAILED to be");
                     }
                     else
                     {
