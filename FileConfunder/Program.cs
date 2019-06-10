@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace FileConfunder
 {
@@ -13,76 +14,82 @@ namespace FileConfunder
         {
             if (args.Length < 1)
             {
-                Console.WriteLine("fc fileOrFolderPath [-confund] [-confundall]");
+                Console.WriteLine(@"USAGE: fc fileOrFolderPath 
+    The default action is -run.
+    OPTIONS
+        [-run] unconfund then run the file with the application set in the config file. When app exits, reconfunds the file.
+        [-confund] confund the given file 
+        [-unconfund] unconfund the given file 
+        [-confundall] confund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed. 
+        [-unconfundall] unconfund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed.
+        [-pattern *] for use with -confundall or -unconfundall. If -pattern is supplied, only those files matching the pattern will be processed.");
                 return;
             }
-            string path = args[0];
-            //Confund an entire directory
-            if (args.Length > 1 && args[1].ToLower() == "-confundall")
-            {
-                if (!Directory.Exists(path))
-                {
-                    Console.WriteLine("{0} cannot be found", path);
-                    return;
-                }
-                foreach (var f in Directory.GetFiles(path))
-                {
-                    if (confundFile(f))
-                    {
-                        Console.WriteLine("{0} has been successfully confunded", f);
-                    }
-                    else
-                    {
-                        Console.WriteLine("{0} has been FAILED to be confunded", f);
-                    }   
-                }
-                Console.WriteLine("{0} has been processed", path);
-            }
-            else
-            {
-                if (!File.Exists(path))
-                {
-                    Console.WriteLine("{0} cannot be found", path);
-                    return;
-                }
+            string path = args[0],
+                   action = args.Length > 1
+                       ? args[1].TrimStart(new char[] { '-' }).ToLower()
+                       : "run",
+                   pattern = "*";
 
-                //Confund a single file
-                if (args.Length > 1 && args[1].ToLower() == "-confund")
-                {
-                    if (confundFile(path))
+            if (args.Contains("-pattern"))
+            {
+                pattern = args[Array.IndexOf(args, "-pattern") + 1];
+            };
+
+            if ((action.EndsWith("all") && !Directory.Exists(path)) ||
+                (!action.EndsWith("all") && !File.Exists(path)))
+            {
+                Console.WriteLine("{0} cannot be found", path);
+                return;
+            }
+
+            switch (action)
+            {
+                case "confundall":
+                    foreach (var f in Directory.GetFiles(path, pattern))
                     {
-                        Console.WriteLine("{0} has been successfully confunded", path);
+                        Console.WriteLine("{0} has {1} confunded", f,
+                            confundFile(f) ? "been successfully" : "FAILED to be");
                     }
-                    else
+                    Console.WriteLine("{0} has been processed", path);
+                    break;
+                case "unconfundall":
+                    foreach (var f in Directory.GetFiles(path, pattern))
                     {
-                        Console.WriteLine("{0} FAILED to be confunded", path);
+                        Console.WriteLine("{0} has {1} unconfunded", f,
+                            confundFile(f, true) ? "been successfully" : "FAILED to be");
                     }
-                }
-                //Unconfund a file and run it with the process at open-with-path
-                else if (confundFile(path, true))
-                {
-                    Console.WriteLine("{0} has been successfully unconfunded", path);
+                    Console.WriteLine("{0} has been processed", path);
+                    break;
+                case "confund":
+                    Console.WriteLine("{0} has {1} confunded", path,
+                        confundFile(path) ? "been successfully" : "FAILED to be");
+                    break;
+                case "unconfund":
+                    Console.WriteLine("{0} has {1} unconfunded", path,
+                        confundFile(path, true) ? "been successfully" : "FAILED to be");
+                    break;
+                case "run":
                     string openWithPath = Properties.Settings.Default.OpenWithPath;
-                    Console.WriteLine("Running {0} {1}", openWithPath, path);
-                    using (var pr = Process.Start(openWithPath, path))
+
+                    if (confundFile(path, true))
                     {
-                        pr.WaitForExit();
-                        Console.WriteLine("{0} has exited", Path.GetFileName(openWithPath));
-                        Console.WriteLine("Starting to reconfund {0}", path);
-                    }
-                    if (confundFile(path))
-                    {
-                        Console.WriteLine("{0} has been successfully re-confunded", path);
+                        Console.WriteLine("{0} has been successfully unconfunded", path);
+                        Console.WriteLine("Running {0} {1}", openWithPath, path);
+                        using (var pr = Process.Start(openWithPath, path))
+                        {
+                            pr.WaitForExit();
+                            Console.WriteLine("{0} has exited", Path.GetFileName(openWithPath));
+                            Console.WriteLine("Starting to reconfund {0}", path);
+                        }
+                        Console.WriteLine("{0} has {1} re-confunded", path,
+                            confundFile(path) ? "been successfully" : "FAILED to be");
                     }
                     else
                     {
-                        Console.WriteLine("{0} has FAILED to be re-confunded", path);
+                        Console.WriteLine("{0} cannot be unconfunded", path);
                     }
-                }
-                else
-                {
-                    Console.WriteLine("{0} cannot be unconfunded", path);
-                }
+                    break;
             }
 
             Console.WriteLine("...........................\n\nPress <ENTER> to exit...");
@@ -92,12 +99,14 @@ namespace FileConfunder
         private static bool confundFile(string path, bool unconfund = false)
         {
             bool success = false;
+            FileInfo fi = new FileInfo(path);
+            int bufferLength = (int)Math.Min(BUFFER_LENGTH, fi.Length);
             try
             {
-                using (var file = File.Open(path, FileMode.Open, FileAccess.ReadWrite))
+                using (var file = fi.Open(FileMode.Open, FileAccess.ReadWrite))
                 {
-                    byte[] buf = new byte[BUFFER_LENGTH];
-                    file.Read(buf, 0, BUFFER_LENGTH);
+                    byte[] buf = new byte[bufferLength];
+                    file.Read(buf, 0, bufferLength);
                     buf = unconfund
                         ? ChangeDataBack(buf)
                         : ChangeData(buf);
