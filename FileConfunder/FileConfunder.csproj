@@ -7,7 +7,7 @@
     <ProjectGuid>{11E4908A-80F5-4C7E-9994-379927B5FF28}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>FileConfunder</RootNamespace>
-    <AssemblyName>fc</AssemblyName>
+    <AssemblyName>fcn</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -53,7 +53,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
-    <None Include="App1.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
