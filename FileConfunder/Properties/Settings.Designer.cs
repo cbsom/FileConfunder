@@ -34,7 +34,7 @@ namespace FileConfunder.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("16000")]
+        [global::System.Configuration.DefaultSettingValueAttribute("4096")]
         public int BufferSize {
             get {
                 return ((int)(this["BufferSize"]));
@@ -43,10 +43,10 @@ namespace FileConfunder.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("125")]
-        public int ByteOffset {
+        [global::System.Configuration.DefaultSettingValueAttribute("fnwrkUFPnw9GuxubyIrQu+5ENJND3g947zsmcknbAYQ=")]
+        public string Key {
             get {
-                return ((int)(this["ByteOffset"]));
+                return ((string)(this["Key"]));
             }
         }
     }

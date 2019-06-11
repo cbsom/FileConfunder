@@ -11,25 +11,26 @@ namespace FileConfunder
         private static string _action = "run";
         private static string _pattern = "*";
         private static int _bufferLength = Properties.Settings.Default.BufferSize;
-        private static int _offset = Properties.Settings.Default.ByteOffset;
+        private static string _key = Properties.Settings.Default.Key;
         private static string _runWith = Properties.Settings.Default.OpenWithPath;
         private static bool _silent;
-        private const string HELP_TEXT = @"USAGE: fnc -path fileOrFolderPath -action actionName
-    If ""-action"" is not suplied, the default action is ""run"".
-    The ""-action"" argument value can be any one of the following values:
-        ""run"" unconfund then run. When app exits, reconfunds the file.
-        ""confund"" confund the given file 
-        ""unconfund"" unconfund the given file 
-        ""rununconfund"" unconfund then run. When app exits, does not reconfund the file.
-        ""confundall"" confund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed.
-        ""unconfundall"" unconfund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed.
-        ""help"" show this help text
-    OTHER OPTIONAL ARGUMENTS
-        [-runwith *] for use with the action ""run"". If  supplied, after unconfundation, the file will be run with the given path. Otherwise the path set in the config file is used.
-        [-pattern *] for use with the action ""confundall"" or ""unconfundall"". If supplied, only those files matching the pattern will be processed.
-        [-buflen *] If supplied, the given number of bytes in the file will be ""confunded"". Otherwise the value set in the config file is used. NOTE: files need to be unconfunded with the same buffer length and offset values whith which they were originally confunded.
-        [-offset *] If supplied, during ""confunding"" or ""unconfunding"" process, each byte will be offset by the given number. Otherwise the value set in the config file is used. NOTE: files need to be unconfunded with the same buffer length and offset values whith which they were originally confunded.
-        [-silent] If supplied, the command window is hidden and automatically. Otherwise, the user needs to press enter to exit.";
+        private const string HELP_TEXT = @"Encrypts a set number of bytes in the beginning of a file.
+Use to prevent easy determination of the file type from the byte format and prevent running the file normally.
+USAGE: fnc -path fileOrFolderPath -action actionName
+The ""-action"" argument value can be any one of the following values:    
+    ""confund"" confund the given file 
+    ""unconfund"" unconfund the given file 
+    ""run"" unconfund the given file then run the file with the app specified in the -runwith argument or in the config file. When the app exits, the file is reconfunded.
+    ""rununconfund"" unconfund  the given file then run the file with the app specified in the -runwith argument or in the config file. When app exits, the file is not reconfunded.
+    ""confundall"" confund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed.
+    ""unconfundall"" unconfund all the files in the given folder. If -pattern is supplied, only those files matching the pattern will be processed.
+    ""help"" show this help text
+OTHER OPTIONAL ARGUMENTS
+    [-runwith *] For use with the actions ""run"" or ""rununconfund"". If this argument is supplied, after the file has been unconfunded, the file will be run with the app specified in the value given for this -runwith argument. If this argument is not supplied the app at the path set in the config file is used.
+    [-pattern *] For use with the action ""confundall"" or ""unconfundall"". If supplied, only those files matching the pattern will be processed.
+    [-buflen *] The number of bytes in the file to be ""confunded"" by encryption. If this argument is not supplied the value set in the config file is used. NOTE: files need to be unconfunded with the same buffer length and key values with which they were originally confunded.
+    [-key *] The AES 256 key used to encrypt the data during ""confunding"". If this argument is not set, the value set in the config file is used. NOTE: files need to be unconfunded with the same buffer length and key values with which they were originally confunded.
+    [-silent] The command window is hidden and automatically. If this argument is not supplied, the user needs to press enter to exit.";
         static void Main(string[] args)
         {
             if (args.Length < 2 || !args.Contains("-path"))
@@ -59,27 +60,41 @@ namespace FileConfunder
                 if (int.TryParse(str, out buflen))
                 {
                     _bufferLength = buflen;
+                    if(_bufferLength > FPE.Net.Constants.MAXLEN)
+                    {
+                        Console.Error.WriteLine("The max value for the buffer length is {0}\nThe recommended buffer length is 4096", 
+                            FPE.Net.Constants.MAXLEN);
+                        return;
+                    }
+                    else if (_bufferLength > 4096)
+                    {
+                        ConsoleColor prevCColor = ConsoleColor.White;
+                        try
+                        {
+                            prevCColor = Console.ForegroundColor;
+                            Console.ForegroundColor = ConsoleColor.Red;
+                        }
+                        catch { }
+                        SpitOut("WARNING! Your buffer length has been set to {0}.\nEncryption time for buffer lengths more than 4096 bytes may be prohibitively long.",
+                            _bufferLength);
+                        try
+                        {
+                            Console.ForegroundColor = prevCColor;
+                        }
+                        catch { }
+                    }
                 }
                 else
                 {
-                    SpitOut("{0} is not a valid value for the -buflen argument", str);
+                    Console.Error.WriteLine("{0} is not a valid value for the -buflen argument", str);
                     return;
                 }
             }
-            if (args.Contains("-offset"))
+            if (args.Contains("-key"))
             {
-                string str = args[Array.IndexOf(args, "-offset") + 1];
-                int offset;
-                if (int.TryParse(str, out offset))
-                {
-                    _offset = offset;
-                }
-                else
-                {
-                    SpitOut("{0} is not a valid value for the -offset argument", str);
-                    return;
-                }
+                _key = args[Array.IndexOf(args, "-offset") + 1];
             }
+
             if (args.Contains("-silent"))
             {
                 _silent = true;
@@ -94,7 +109,7 @@ namespace FileConfunder
             if (_action != "help" && ((_action.EndsWith("all") && !Directory.Exists(_path)) ||
                 (!_action.EndsWith("all") && !File.Exists(_path))))
             {
-                SpitOut("{0} cannot be found", _path);
+                Console.Error.WriteLine("{0} cannot be found", _path);
                 return;
             }
 
@@ -187,9 +202,7 @@ namespace FileConfunder
                 {
                     byte[] buf = new byte[bufferLength];
                     file.Read(buf, 0, bufferLength);
-                    buf = unconfund
-                        ? UngarbleData(buf)
-                        : GarbleData(buf);
+                    buf = EncryptData(buf, unconfund);
                     file.Position = 0;
                     file.Write(buf, 0, bufferLength);
                     file.Close();
@@ -204,50 +217,15 @@ namespace FileConfunder
             return success;
         }
 
-        private static byte[] GarbleData(byte[] realData)
+        private static byte[] EncryptData(byte[] data, bool ungarble = false)
         {
-            byte[] muckedData = new byte[realData.Length];
-
-            for (int i = 0; i < realData.Length; i++)
-            {
-                if (realData[i] == Byte.MinValue || realData[i] == Byte.MaxValue)
-                {
-                    //So not to be too obvious, null and max-value bytes are not changed.
-                    muckedData[i] = realData[i];
-                }
-                else if ((realData[i] + _offset) > Byte.MaxValue)
-                {
-                    muckedData[i] = (byte)(Byte.MaxValue - realData[i]);
-                }
-                else
-                {
-                    muckedData[i] = (byte)(realData[i] + _offset);
-                }
-            }
-            return muckedData;
-        }
-
-        private static byte[] UngarbleData(byte[] muckedData)
-        {
-            byte[] origData = new byte[muckedData.Length];
-
-            for (int i = 0; i < muckedData.Length; i++)
-            {
-                if (muckedData[i] == Byte.MinValue || muckedData[i] == Byte.MaxValue)
-                {
-                    //So not to be too obvious, null and max-value bytes are not changed.
-                    origData[i] = muckedData[i];
-                }
-                else if ((muckedData[i] - _offset) < Byte.MinValue)
-                {
-                    origData[i] = (byte)(Byte.MaxValue - muckedData[i]);
-                }
-                else
-                {
-                    origData[i] = (byte)(muckedData[i] - _offset);
-                }
-            }
-            return origData;
-        }
+            var intArray = data.Select(b => (int)b).ToArray();
+            byte[] aes = Convert.FromBase64String(_key);
+            var ff1 = new FPE.Net.FF1(Byte.MaxValue + 1, _bufferLength);
+            int[] enced = ungarble
+                ? ff1.decrypt(aes, new byte[] { }, intArray)
+                : ff1.encrypt(aes, new byte[] { }, intArray);
+            return enced.Select(i => (byte)i).ToArray();
+        }        
     }
 }
