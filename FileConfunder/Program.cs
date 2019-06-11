@@ -184,7 +184,12 @@ namespace FileConfunder
 
             for (int i = 0; i < realData.Length; i++)
             {
-                if ((realData[i] + _offset) > Byte.MaxValue)
+                if (realData[i] == Byte.MinValue || realData[i] == Byte.MaxValue)
+                {
+                    //So not to be too obvious, null and max-value bytes are not changed.
+                    muckedData[i] = realData[i];
+                }
+                else if ((realData[i] + _offset) > Byte.MaxValue)
                 {
                     muckedData[i] = (byte)(Byte.MaxValue - realData[i]);
                 }
@@ -202,7 +207,12 @@ namespace FileConfunder
 
             for (int i = 0; i < muckedData.Length; i++)
             {
-                if ((muckedData[i] - _offset) < Byte.MinValue)
+                if (muckedData[i] == Byte.MinValue || muckedData[i] == Byte.MaxValue)
+                {
+                    //So not to be too obvious, null and max-value bytes are not changed.
+                    origData[i] = muckedData[i];
+                }
+                else if ((muckedData[i] - _offset) < Byte.MinValue)
                 {
                     origData[i] = (byte)(Byte.MaxValue - muckedData[i]);
                 }
