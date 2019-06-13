@@ -16,7 +16,7 @@ namespace FileConfunder
         private static bool _silent;
         private const string HELP_TEXT = @"Encrypts a set number of bytes in the beginning of a file.
 Use to prevent easy determination of the file type from the byte format and prevent running the file normally.
-USAGE: fnc -path fileOrFolderPath -action actionName
+USAGE: fnc fileOrFolderPath -action actionName
 The ""-action"" argument value can be any one of the following values:    
     ""confund"" confund the given file 
     ""unconfund"" unconfund the given file 
@@ -30,86 +30,13 @@ OTHER OPTIONAL ARGUMENTS
     [-pattern *] For use with the action ""confundall"" or ""unconfundall"". If supplied, only those files matching the pattern will be processed.
     [-buflen *] The number of bytes in the file to be ""confunded"" by encryption. If this argument is not supplied the value set in the config file is used. NOTE: files need to be unconfunded with the same buffer length and key values with which they were originally confunded.
     [-key *] The AES 256 key used to encrypt the data during ""confunding"". If this argument is not set, the value set in the config file is used. NOTE: files need to be unconfunded with the same buffer length and key values with which they were originally confunded.
-    [-silent] The command window is hidden and automatically. If this argument is not supplied, the user needs to press enter to exit.";
+    [-silent] The command window is hidden and automatically. If this argument is not supplied, the user needs to press enter to exit.
+    [-path *] The file or folder path to process. Note, you can simply supply the value, the ""-path"" part of the argument can be left out.";
+  
         static void Main(string[] args)
         {
-            if (args.Length < 2 || !args.Contains("-path"))
+            if (!ProcessArgs(args))
             {
-                Console.WriteLine(HELP_TEXT);
-                return;
-            }
-
-            _path = args[Array.IndexOf(args, "-path") + 1];
-
-            if (args.Contains("-action"))
-            {
-                _action = args[Array.IndexOf(args, "-action") + 1];
-            }
-            if (args.Contains("-runwith"))
-            {
-                _runWith = args[Array.IndexOf(args, "-runwith") + 1];
-            }
-            if (args.Contains("-pattern"))
-            {
-                _pattern = args[Array.IndexOf(args, "-pattern") + 1];
-            }
-            if (args.Contains("-buflen"))
-            {
-                string str = args[Array.IndexOf(args, "-buflen") + 1];
-                int buflen;
-                if (int.TryParse(str, out buflen))
-                {
-                    _bufferLength = buflen;
-                    if(_bufferLength > FPE.Net.Constants.MAXLEN)
-                    {
-                        Console.Error.WriteLine("The max value for the buffer length is {0}\nThe recommended buffer length is 4096", 
-                            FPE.Net.Constants.MAXLEN);
-                        return;
-                    }
-                    else if (_bufferLength > 4096)
-                    {
-                        ConsoleColor prevCColor = ConsoleColor.White;
-                        try
-                        {
-                            prevCColor = Console.ForegroundColor;
-                            Console.ForegroundColor = ConsoleColor.Red;
-                        }
-                        catch { }
-                        SpitOut("WARNING! Your buffer length has been set to {0}.\nEncryption time for buffer lengths more than 4096 bytes may be prohibitively long.",
-                            _bufferLength);
-                        try
-                        {
-                            Console.ForegroundColor = prevCColor;
-                        }
-                        catch { }
-                    }
-                }
-                else
-                {
-                    Console.Error.WriteLine("{0} is not a valid value for the -buflen argument", str);
-                    return;
-                }
-            }
-            if (args.Contains("-key"))
-            {
-                _key = args[Array.IndexOf(args, "-offset") + 1];
-            }
-
-            if (args.Contains("-silent"))
-            {
-                _silent = true;
-                try
-                {
-                    Console.SetBufferSize(1, 1);
-                    Console.SetWindowSize(1, 1);
-                    Console.SetWindowPosition(-1, -1);
-                }
-                catch { }
-            }
-            if (_action != "help" && ((_action.EndsWith("all") && !Directory.Exists(_path)) ||
-                (!_action.EndsWith("all") && !File.Exists(_path))))
-            {
-                Console.Error.WriteLine("{0} cannot be found", _path);
                 return;
             }
 
@@ -183,6 +110,113 @@ OTHER OPTIONAL ARGUMENTS
             Console.ReadLine();
         }
 
+        private static bool ProcessArgs(string[] args)
+        {
+            if (args.Length < 1)
+            {
+                Console.WriteLine(HELP_TEXT);
+                return false;
+            }
+
+            if (args.Contains("-path"))
+            {
+                _path = args[Array.IndexOf(args, "-path") + 1];
+            }
+            else
+            {
+                for (int i = 0; i < args.Length; i++)
+                {
+                    if (args[i].StartsWith("-"))
+                    {
+                        continue;
+                    }
+                    else if (i == 0 || !args[i - 1].StartsWith("-"))
+                    {
+                        _path = args[i];
+                        break;
+                    }
+                }
+                if (_path == null)
+                {
+                    Console.Error.WriteLine("No file or folder path supplied");
+                    return false;
+                }
+            }
+
+            if (args.Contains("-action"))
+            {
+                _action = args[Array.IndexOf(args, "-action") + 1];
+            }
+            if (args.Contains("-runwith"))
+            {
+                _runWith = args[Array.IndexOf(args, "-runwith") + 1];
+            }
+            if (args.Contains("-pattern"))
+            {
+                _pattern = args[Array.IndexOf(args, "-pattern") + 1];
+            }
+            if (args.Contains("-buflen"))
+            {
+                string str = args[Array.IndexOf(args, "-buflen") + 1];
+                int buflen;
+                if (int.TryParse(str, out buflen))
+                {
+                    _bufferLength = buflen;
+                    if (_bufferLength > FPE.Net.Constants.MAXLEN)
+                    {
+                        Console.Error.WriteLine("The max value for the buffer length is {0}\nThe recommended buffer length is 4096",
+                            FPE.Net.Constants.MAXLEN);
+                        return false;
+                    }
+                    else if (_bufferLength > 4096)
+                    {
+                        ConsoleColor prevCColor = ConsoleColor.White;
+                        try
+                        {
+                            prevCColor = Console.ForegroundColor;
+                            Console.ForegroundColor = ConsoleColor.Red;
+                        }
+                        catch { }
+                        SpitOut("WARNING! Your buffer length has been set to {0}.\nEncryption time for buffer lengths more than 4096 bytes may be prohibitively long.",
+                            _bufferLength);
+                        try
+                        {
+                            Console.ForegroundColor = prevCColor;
+                        }
+                        catch { }
+                    }
+                }
+                else
+                {
+                    Console.Error.WriteLine("{0} is not a valid value for the -buflen argument", str);
+                    return false;
+                }
+            }
+            if (args.Contains("-key"))
+            {
+                _key = args[Array.IndexOf(args, "-offset") + 1];
+            }
+
+            if (args.Contains("-silent"))
+            {
+                _silent = true;
+                try
+                {
+                    Console.SetBufferSize(1, 1);
+                    Console.SetWindowSize(1, 1);
+                    Console.SetWindowPosition(-1, -1);
+                }
+                catch { }
+            }
+            if (_action != "help" && ((_action.EndsWith("all") && !Directory.Exists(_path)) ||
+                (!_action.EndsWith("all") && !File.Exists(_path))))
+            {
+                Console.Error.WriteLine("{0} cannot be found", _path);
+                return false;
+            }
+            return true;
+        }
+
         private static void SpitOut(string txt, params object[] par)
         {
             if (!_silent)
@@ -226,6 +260,6 @@ OTHER OPTIONAL ARGUMENTS
                 ? ff1.decrypt(aes, new byte[] { }, intArray)
                 : ff1.encrypt(aes, new byte[] { }, intArray);
             return enced.Select(i => (byte)i).ToArray();
-        }        
+        }
     }
 }
