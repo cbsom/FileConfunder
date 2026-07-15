@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -17,7 +17,6 @@ namespace Confunder
         private static string _pattern = "*";
         private static bool _silent = false;
         private static bool _isFolder = false;
-        private const string _keyAtRestEncryptionKey = "5otf7MjpE3CDioZSf1Y2M5J/RH1Fl4CbXBYRCfP5Y3o=";
         private const string HELP_TEXT = @"-----------------------------------------------------------------------------------
 Confunder - ""Confunding"" is the process of making it difficult to determine the file type 
 and contents from the byte format to prevent the file from being run normally. 
@@ -79,40 +78,18 @@ USAGE:
                 case "run":
                     if (_isFolder)
                     {
-                        SpitOut("{0} is a folder.", _path);
+                        SpitOut("{0} is a folder. The run action can only be performed on a single file.", _path);
                     }
                     else
                     {
-                        var wasConfunded = IsFileConfunded(_path);
-                        if (wasConfunded)
-                        {
-                            if (!EnsureKeyLoaded()) { return; }
-                            UnConfundFile(_path);
-                            SpitOut("{0} has been successfully unconfunded", _path);
-                        }
-                        SpitOut("Running {0}", _path);
-
-                        string fullPath = new FileInfo(_path).FullName;
-                        ProcessStartInfo startInfo = new()
-                        {
-                            FileName = fullPath,
-                            UseShellExecute = true
-                        };
-                        using var pr = Process.Start(startInfo);
-                        pr.WaitForExit();
-                        SpitOut("Process for {0} has exited", _path);
-                        if (wasConfunded)
-                        {
-                            SpitOut("Starting to reconfund {0}", _path);
-                            ConfundFile(_path);
-                        }
+                        RunFile(_path);
                     }
                     break;
                 default:
                     SpitOut(HELP_TEXT);
                     break;
             }
-        }
+        }       
 
         private static bool UnConfundFile(string path)
         {
@@ -161,6 +138,48 @@ USAGE:
             }
             SpitOut("{0} has been processed", path);
             return;
+        }
+
+        private static bool RunFile(string path)
+        {
+            bool wasConfunded = IsFileConfunded(path);
+            if (wasConfunded)
+            {
+                if (!EnsureKeyLoaded()) { return false; }
+                UnConfundFile(path);
+                SpitOut("{0} has been successfully unconfunded", path);
+            }
+            SpitOut("Running {0}", path);
+
+            try
+            {
+                string fullPath = new FileInfo(path).FullName;
+                ProcessStartInfo startInfo = new()
+                {
+                    FileName = fullPath,
+                    UseShellExecute = true
+                };
+                using var pr = Process.Start(startInfo);
+                if (pr != null)
+                {
+                    pr.WaitForExit();
+                    SpitOut("Process for {0} has exited", path);
+                }
+                else
+                {
+                    SpitOut("Process for {0} was reused or could not be started synchronously.", path);
+                }
+            }
+            finally
+            {
+                if (wasConfunded)
+                {
+                    SpitOut("Starting to reconfund {0}", path);
+                    ConfundFile(path);
+                }
+            }
+
+            return true;
         }
 
         private static bool ProcessArgs(string[] args)
@@ -462,6 +481,12 @@ USAGE:
             return true;
         }
 
+        private static byte[] GetNonWindowsAtRestKey()
+        {
+            var machineId = Environment.MachineName + Environment.UserName;
+            return SHA256.HashData(Encoding.UTF8.GetBytes(machineId));
+        }
+
         private static bool TryLoadStoredKey(out string key)
         {
             key = null;
@@ -475,7 +500,23 @@ USAGE:
                 }
 
                 var protectedBytes = File.ReadAllBytes(keyPath);
-                var unprotectedBytes = EncryptData(protectedBytes, _keyAtRestEncryptionKey, ungarble: true);
+                byte[] unprotectedBytes;
+
+                if (OperatingSystem.IsWindows())
+                {
+                    unprotectedBytes = ProtectedData.Unprotect(protectedBytes, null, DataProtectionScope.CurrentUser);
+                }
+                else
+                {
+                    using var aes = Aes.Create();
+                    aes.Key = GetNonWindowsAtRestKey();
+                    aes.IV = new byte[16];
+                    aes.Mode = CipherMode.CBC;
+                    aes.Padding = PaddingMode.PKCS7;
+                    using var decryptor = aes.CreateDecryptor();
+                    unprotectedBytes = decryptor.TransformFinalBlock(protectedBytes, 0, protectedBytes.Length);
+                }
+
                 var storedKey = Encoding.UTF8.GetString(unprotectedBytes);
                 if (!IsValidKey(storedKey, out _))
                 {
@@ -500,8 +541,34 @@ USAGE:
                 Directory.CreateDirectory(directory);
             }
 
-            var protectedBytes = EncryptData(Encoding.UTF8.GetBytes(key), _keyAtRestEncryptionKey);
+            var unprotectedBytes = Encoding.UTF8.GetBytes(key);
+            byte[] protectedBytes;
+
+            if (OperatingSystem.IsWindows())
+            {
+                protectedBytes = ProtectedData.Protect(unprotectedBytes, null, DataProtectionScope.CurrentUser);
+            }
+            else
+            {
+                using var aes = Aes.Create();
+                aes.Key = GetNonWindowsAtRestKey();
+                aes.IV = new byte[16];
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+                using var encryptor = aes.CreateEncryptor();
+                protectedBytes = encryptor.TransformFinalBlock(unprotectedBytes, 0, unprotectedBytes.Length);
+            }
+
             File.WriteAllBytes(keyPath, protectedBytes);
+
+            if (!OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    File.SetUnixFileMode(keyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                }
+                catch { } // Best effort
+            }
         }
 
         private static string GetKeyStorePath()
@@ -547,7 +614,7 @@ USAGE:
                 file.Write(buf, 0, bufferLength);
                 file.Close();
 
-                if (unconfund || PrependConfundMarkToFile(path))
+                if (unconfund || AppendConfundMarkToFile(path))
                 {
                     success = true;
 
@@ -561,29 +628,12 @@ USAGE:
             return success;
         }
 
-        private static bool PrependConfundMarkToFile(string path)
+        private static bool AppendConfundMarkToFile(string path)
         {
             try
             {
-                string tempPath = Path.GetTempFileName();
-                // 1. Create a temporary file and write the new bytes first
-                using (FileStream tempStream = new(tempPath, FileMode.Create, FileAccess.Write))
-                {
-                    tempStream.Write(_confundedMark, 0, _confundedMark.Length);
-
-                    // 2. Stream the original file contents right after the new bytes
-                    if (File.Exists(path))
-                    {
-                        using (FileStream originalStream = new(path, FileMode.Open, FileAccess.Read))
-                        {
-                            originalStream.CopyTo(tempStream); // Copies in chunks efficiently
-                        }
-                    }
-                }
-
-                // 3. Swap the temporary file with the original file
-                File.Delete(path);
-                File.Move(tempPath, path);
+                using FileStream fs = new(path, FileMode.Append, FileAccess.Write);
+                fs.Write(_confundedMark, 0, _confundedMark.Length);
                 return true;
             }
             catch (Exception ex)
@@ -598,37 +648,16 @@ USAGE:
             try
             {
                 int bytesToRemove = _confundedMark.Length;
-                // Open the file with Read and Write permissions
                 using FileStream fs = new(path, FileMode.Open, FileAccess.ReadWrite);
                 long fileLength = fs.Length;
-                if (bytesToRemove >= fileLength)
+                if (bytesToRemove > fileLength)
                 {
-                    fs.Close();
                     return false;
                 }
 
-                // Use a 4KB buffer for optimal I/O chunking
-                byte[] buffer = new byte[4096];
-                long writePosition = 0;
-                long readPosition = bytesToRemove;
-
-                // Shift data from right to left
-                while (readPosition < fileLength)
-                {
-                    fs.Position = readPosition;
-                    int bytesRead = fs.Read(buffer, 0, buffer.Length);
-
-                    fs.Position = writePosition;
-                    fs.Write(buffer, 0, bytesRead);
-
-                    readPosition += bytesRead;
-                    writePosition += bytesRead;
-                }
-
-                // Truncate the trailing duplicate data at the end of the file
-                fs.SetLength(writePosition);
+                // Truncate the file by removing the mark from the end
+                fs.SetLength(fileLength - bytesToRemove);
                 return true;
-
             }
             catch (Exception ex)
             {
@@ -650,11 +679,11 @@ USAGE:
             try
             {
                 using var file = fi.Open(FileMode.Open, FileAccess.Read);
+                file.Seek(-bufLen, SeekOrigin.End);
                 byte[] buf = new byte[bufLen];
                 file.ReadExactly(buf, 0, bufLen);
 
                 isConfunded = buf.SequenceEqual(_confundedMark);
-                file.Close();
             }
             catch (Exception ex)
             {
@@ -671,13 +700,28 @@ USAGE:
 
         private static byte[] EncryptData(byte[] data, string encryptionKey, bool ungarble = false)
         {
-            var intArray = data.Select(b => (int)b).ToArray();
-            byte[] aes = Convert.FromBase64String(encryptionKey);
-            var ff1 = new FPE.Net.FF1(byte.MaxValue + 1, _bufferLength);
-            int[] enced = ungarble
-                ? ff1.decrypt(aes, new byte[] { }, intArray)
-                : ff1.encrypt(aes, new byte[] { }, intArray);
-            return enced.Select(i => (byte)i).ToArray();
-        }      
+            using var aes = Aes.Create();
+            aes.Key = Convert.FromBase64String(encryptionKey);
+            aes.Mode = CipherMode.ECB;
+            aes.Padding = PaddingMode.None;
+            
+            int numBlocks = (data.Length + 15) / 16;
+            byte[] counter = new byte[numBlocks * 16];
+            for (int i = 0; i < numBlocks; i++)
+            {
+                byte[] bytes = BitConverter.GetBytes(i);
+                Buffer.BlockCopy(bytes, 0, counter, i * 16, bytes.Length);
+            }
+            
+            using var encryptor = aes.CreateEncryptor();
+            byte[] keystream = encryptor.TransformFinalBlock(counter, 0, counter.Length);
+            
+            byte[] result = new byte[data.Length];
+            for (int i = 0; i < data.Length; i++)
+            {
+                result[i] = (byte)(data[i] ^ keystream[i]);
+            }
+            return result;
+        }
     }
 }

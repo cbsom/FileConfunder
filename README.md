@@ -10,9 +10,9 @@ It supports:
 
 ## How It Works
 
-Confunder writes a marker to the beginning of a file and applies reversible byte-level transformation to file content.
+Confunder applies standard AES-ECB encryption to the first 4096 bytes of a file to obscure it without altering the file size, and then appends a marker to the end of the file. 
 
-At runtime, it can detect whether a file is already confunded by checking the marker.
+At runtime, it can detect whether a file is already confunded by instantly checking for the marker at the end of the file.
 
 ## Requirements
 
@@ -96,9 +96,13 @@ Example:
 
 - You can provide any text with -key.
 - Confunder derives a fixed 256-bit key from that text using SHA-256.
-- The derived key is encoded in base64 for internal encryption operations.
-- When saved, the key is encrypted using Confunder encryption logic and stored at:
+- The derived key is encoded in base64 for internal AES encryption operations.
+- When saved using `setkey`, the key is securely encrypted at rest and stored at:
   - LocalApplicationData/Confunder/key.dat
+- **At-Rest Security:** 
+  - On Windows, Confunder uses native DPAPI (`ProtectedData`) to tie the saved key securely to your user account.
+  - On Linux and macOS, Confunder dynamically derives a unique local AES key based on the machine name and username to protect the saved key file from casual observation, and relies on strict OS file permissions.
+- **Cross-Platform Compatibility:** The file manipulation itself relies solely on the derived SHA-256 key. This means a file confunded on Windows can be unconfunded on Linux or macOS as long as the same original text key is provided.
 
 Important:
 - Files encrypted with one key cannot be unconfunded with a different key.
@@ -118,8 +122,7 @@ When not in silent mode, Confunder waits for Enter before exiting.
 
 ## Project Structure
 
-- Confunder/Program.cs: CLI logic and file processing flow
-- Confunder/FPE.Net/: transformation primitives
+- Confunder/Program.cs: CLI logic, AES encryption, and file processing flow
 - Confunder.sln: solution
 
 ## Disclaimer
