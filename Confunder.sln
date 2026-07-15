@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.572
+# Visual Studio Version 18
+VisualStudioVersion = 18.8.12009.203 stable
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileConfunder", "FileConfunder\FileConfunder.csproj", "{11E4908A-80F5-4C7E-9994-379927B5FF28}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Confunder", "Confunder\Confunder.csproj", "{DDCB9592-9AAA-7392-366F-B6F351FF1712}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +15,10 @@ Global
 		{11E4908A-80F5-4C7E-9994-379927B5FF28}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{11E4908A-80F5-4C7E-9994-379927B5FF28}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{11E4908A-80F5-4C7E-9994-379927B5FF28}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DDCB9592-9AAA-7392-366F-B6F351FF1712}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DDCB9592-9AAA-7392-366F-B6F351FF1712}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DDCB9592-9AAA-7392-366F-B6F351FF1712}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DDCB9592-9AAA-7392-366F-B6F351FF1712}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

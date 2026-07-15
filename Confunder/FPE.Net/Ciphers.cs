@@ -33,12 +33,12 @@ namespace FPE.Net
         /**
          * Instance of the AES cipher in ECB mode with no padding.
          */
-        private AesManaged mAesEcbCipher;
+        private Aes mAesEcbCipher;
 
         /**
          * Instance of the AES cipher in CBC mode with no padding.
          */
-        private AesManaged mAesCbcCipher;
+        private Aes mAesCbcCipher;
 
         /**
          * Constructs a Ciphers instance with the required AES ciphers.
@@ -47,18 +47,15 @@ namespace FPE.Net
         {
             try
             {
-                mAesEcbCipher = new AesManaged() {
-                    Mode = CipherMode.ECB,
-                    Padding = PaddingMode.None,
-                    KeySize = 128
-                };
+                mAesEcbCipher = Aes.Create();
+                mAesEcbCipher.Mode = CipherMode.ECB;
+                mAesEcbCipher.Padding = PaddingMode.None;
+                mAesEcbCipher.KeySize = 128;
 
-                mAesCbcCipher = new AesManaged()
-                {
-                    Mode = CipherMode.CBC,
-                    Padding = PaddingMode.None,
-                    KeySize = 128
-                };
+                mAesCbcCipher = Aes.Create();
+                mAesCbcCipher.Mode = CipherMode.CBC;
+                mAesCbcCipher.Padding = PaddingMode.None;
+                mAesCbcCipher.KeySize = 128;
             }
             catch (Exception e)
             {

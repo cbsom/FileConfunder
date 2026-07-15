@@ -210,10 +210,7 @@ namespace FPE.Net
 
             // type conversion for readability
             BigInteger r = radix;
-
-            // validate x
-            if (x == null)
-                throw new NullReferenceException("x must not be null");
+            
             if (x.CompareTo(BigInteger.Zero) < 0 ||
                 x.CompareTo(BigInteger.Pow(r, m)) >= 0)
                 throw new Exception("X is not within the permitted range of 0.." + BigInteger.Pow(r, m) + ": " + x);
