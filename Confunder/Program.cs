@@ -59,13 +59,14 @@ USAGE:
         * ""unconfund"" - unconfund the given file or all the files in a given folder. 
             If path is a folder and -pattern is supplied, only those files matching the pattern will be processed.
         * ""run"" - run a single file. If it is confunded, unconfunds it first. 
-            When the app exits, if the file was previously confunded the file is reconfunded.
+            On Windows: when the app exits, if the file was previously confunded the file is reconfunded.
         * ""setkey"" - update the key stored securely on this machine for future runs.
         * ""help"" - show this help text
     If -action is not supplied and the path is a single file.
         * If the file was not previously confunded, then the file will be confunded.
         * If the file was previously confunded, 
-          then the file will be unconfunded, run and reconfunded afterwards.
+          then the file will be unconfunded and run.
+          If running on Windows, the file will be reconfunded afterwards.
     [-pattern *] For use if the path is a folder. 
         If supplied, only those files within this folder matching the pattern will be processed.
     [-key] A text key to use for confunding and unconfunding the file/s.
@@ -199,7 +200,7 @@ USAGE:
             }
             finally
             {
-                if (wasConfunded)
+                if (wasConfunded && OperatingSystem.IsWindows())
                 {
                     SpitOut("Starting to reconfund {0}", path);
                     ConfundFile(path);
