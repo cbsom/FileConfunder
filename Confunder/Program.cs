@@ -117,100 +117,9 @@ USAGE:
                     SpitOut(HELP_TEXT);
                     break;
             }
-        }       
+        }    
 
-        private static bool UnConfundFile(string path)
-        {
-            if (!IsFileConfunded(path))
-            {
-                SpitOut("{0} is not confunded", path);
-                return false;
-            }
-            var success = ConfundFile(path, unconfund: true);
-            SpitOut("{0} has {1} unconfunded", path,
-            success
-                ? "been successfully"
-                : "FAILED to be");
-            return success;
-        }
-
-        private static void UnConfundAll(string path, string pattern)
-        {
-            foreach (var f in Directory.GetFiles(path, pattern))
-            {
-                UnConfundFile(f);
-            }
-            SpitOut("{0} has been processed", path);
-        }
-
-        private static bool ConfundFile(string path)
-        {
-            if (IsFileConfunded(path))
-            {
-                SpitOut("{0} is already confunded", path);
-                return false;
-            }
-            var success = ConfundFile(path, unconfund: false);
-            SpitOut("{0} has {1} confunded", path,
-            success
-                ? "been successfully"
-                : "FAILED to be");
-            return success;
-        }
-
-        private static void ConfundAll(string path, string pattern)
-        {
-            foreach (var f in Directory.GetFiles(path, pattern))
-            {
-                ConfundFile(f);
-            }
-            SpitOut("{0} has been processed", path);
-            return;
-        }
-
-        private static bool RunFile(string path)
-        {
-            bool wasConfunded = IsFileConfunded(path);
-            if (wasConfunded)
-            {
-                if (!EnsureKeyLoaded()) { return false; }
-                UnConfundFile(path);
-                SpitOut("{0} has been successfully unconfunded", path);
-            }
-            SpitOut("Running {0}", path);
-
-            try
-            {
-                string fullPath = new FileInfo(path).FullName;
-                ProcessStartInfo startInfo = new()
-                {
-                    FileName = fullPath,
-                    UseShellExecute = true
-                };
-                using var pr = Process.Start(startInfo);
-                if (pr != null)
-                {
-                    pr.WaitForExit();
-                    SpitOut("Process for {0} has exited", path);
-                }
-                else
-                {
-                    SpitOut("Process for {0} was reused or could not be started synchronously.", path);
-                }
-            }
-            finally
-            {
-                if (wasConfunded && OperatingSystem.IsWindows())
-                {
-                    SpitOut("Starting to reconfund {0}", path);
-                    ConfundFile(path);
-                }
-            }
-
-            return true;
-        }
-
-        private static bool ProcessArgs(string[] args)
+          private static bool ProcessArgs(string[] args)
         {
             if (args.Length < 1)
             {
@@ -235,7 +144,7 @@ USAGE:
                 }
                 else
                 {
-                    Console.Error.WriteLine("Invalid action specified");
+                    Console.Error.WriteLine("Legal actions are: confund, unconfund, run, setkey, help");
                     return false;
                 }
             }
@@ -326,7 +235,6 @@ USAGE:
 
                 _key = derivedKey;
             }
-
             if (args.Contains("-silent"))
             {
                 _silent = true;
@@ -345,7 +253,98 @@ USAGE:
             }
 
             return true;
+        }   
+
+        private static bool ConfundFile(string path)
+        {
+            if (IsFileConfunded(path))
+            {
+                SpitOut("{0} is already confunded", path);
+                return false;
+            }
+            var success = ConfundFile(path, unconfund: false);
+            SpitOut("{0} has {1} confunded", path,
+            success
+                ? "been successfully"
+                : "FAILED to be");
+            return success;
         }
+
+        private static void ConfundAll(string path, string pattern)
+        {
+            foreach (var f in Directory.GetFiles(path, pattern))
+            {
+                ConfundFile(f);
+            }
+            SpitOut("{0} has been processed", path);
+            return;
+        }
+
+         private static bool UnConfundFile(string path)
+        {
+            if (!IsFileConfunded(path))
+            {
+                SpitOut("{0} is not confunded", path);
+                return false;
+            }
+            var success = ConfundFile(path, unconfund: true);
+            SpitOut("{0} has {1} unconfunded", path,
+            success
+                ? "been successfully"
+                : "FAILED to be");
+            return success;
+        }
+
+        private static void UnConfundAll(string path, string pattern)
+        {
+            foreach (var f in Directory.GetFiles(path, pattern))
+            {
+                UnConfundFile(f);
+            }
+            SpitOut("{0} has been processed", path);
+        }
+
+        private static bool RunFile(string path)
+        {
+            bool wasConfunded = IsFileConfunded(path);
+            if (wasConfunded)
+            {
+                if (!EnsureKeyLoaded()) { return false; }
+                UnConfundFile(path);
+                SpitOut("{0} has been successfully unconfunded", path);
+            }
+            SpitOut("Running {0}", path);
+
+            try
+            {
+                string fullPath = new FileInfo(path).FullName;
+                ProcessStartInfo startInfo = new()
+                {
+                    FileName = fullPath,
+                    UseShellExecute = true
+                };
+                using var pr = Process.Start(startInfo);
+                if (pr != null)
+                {
+                    pr.WaitForExit();
+                    SpitOut("Process for {0} has exited", path);
+                }
+                else
+                {
+                    SpitOut("Process for {0} was reused or could not be started synchronously.", path);
+                }
+            }
+            finally
+            {
+                if (wasConfunded && OperatingSystem.IsWindows())
+                {
+                    SpitOut("Starting to reconfund {0}", path);
+                    ConfundFile(path);
+                }
+            }
+
+            return true;
+        }      
 
         private static bool EnsureKeyLoaded()
         {
