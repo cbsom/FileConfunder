@@ -1,3 +1,30 @@
+/*******************************************************************
+ * Confunder - File obfuscator and deobfuscator.
+ * 
+ * Licensed under the GNU General Public License v3.0.
+ * 
+ * Usage:
+ *   confunder <path> <action> [options]
+ * 
+ * Actions:
+ *   confund   - Obfuscate the file or files.
+ *   unconfund - Deobfuscate the file or files.
+ *   run       - Deobfuscate, run, then obfuscate again.
+ *   setkey    - Set or generate the encryption key used for the obfuscation.
+ *   help      - Show the help message.
+ * 
+ * Options:
+ *   -key <key>     - Use the specified key (default: stored key).
+ *   -silent        - Suppress all console output.
+ *   -pattern <pattern> - Use a pattern to find files when the target is a folder.
+ * 
+ * Examples:
+ *   confunder ./myfile.txt -action run
+ *   confunder ./myfolder -action run -pattern "*.cs"
+ * 
+ *********************************************************************/
+
+
 using System;
 using System.Diagnostics;
 using System.IO;
