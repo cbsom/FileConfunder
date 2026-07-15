@@ -3,11 +3,10 @@
 Confunder is a command-line utility that obscures executable files by transforming their leading bytes into a non-runnable form, then restores them when needed.
 
 It supports:
-- Confunding a single file
-- Confunding all files in a folder (with optional pattern filtering)
-- Unconfunding files
-- Running a confunded file by temporarily restoring it, then reconfudding it after exit
-- Storing and rotating an application key
+- Confunding a file
+- Restoring or "unconfunding" a file
+- Confunding or Unconfunding all files in a folder (with optional pattern filtering)
+- Running a confunded file by temporarily restoring it, then reconfunding it after exit
 
 ## How It Works
 
@@ -41,14 +40,14 @@ General form:
   confunder path -action <confund|unconfund|run|setkey|help> [options]
 
 Options:
-- -pattern <glob>
+- -pattern <text>
 - -key <text>
 - -silent
 
 Notes:
 - For file paths, if -action is omitted:
   - Not yet confunded: it will be confunded
-  - Already confunded: it will be unconfunded, run, then reconfudded
+  - Already confunded: it will be unconfunded, run, then reconfunded
 - For folder paths, -action is required
 - setkey requires -key
 
@@ -59,25 +58,25 @@ Confund a file or all matching files in a folder.
 
 Examples:
 
-  confunder ./myapp.exe -action confund -key "my secret"
+  confunder ./myfile.txt -action confund -key "my secret"
 
-  confunder ./tools -action confund -pattern "*.exe" -key "my secret"
+  confunder ./allMyFiles -action confund -pattern "*.txt" -key "my secret"
 
 ### unconfund
 Reverse confund for a file or all matching files in a folder.
 
 Examples:
 
-  confunder ./myapp.exe -action unconfund -key "my secret"
+  confunder ./myfile.txt -action unconfund -key "my secret"
 
-  confunder ./tools -action unconfund -pattern "*.exe" -key "my secret"
+  confunder ./allMyFiles -action unconfund -pattern "*.exe" -key "my secret"
 
 ### run
-If the file is confunded, Confunder restores it, starts it, waits for process exit, then reconfuds it.
+If the file is confunded, Confunder restores it, starts it, waits for process to exit, then reconfunds it.
 
 Example:
 
-  confunder ./myapp.exe -action run -key "my secret"
+  confunder ./myfile.txt -action run -key "my secret"
 
 ### setkey
 Store or rotate the key used for future operations.
