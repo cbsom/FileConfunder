@@ -1,0 +1,71 @@
+name: Build Native AOT
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers build when you push a version tag
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # Define the platforms you want to build for
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x' # Or your target version
+
+      - name: Publish Native AOT
+        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained true
+
+      - name: Package Binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: Compress-Archive -Path Confunder/bin/Release/net10.0/win-x64/publish/confunder.exe -DestinationPath FileConfunder-win-x64.zip
+        shell: pwsh
+
+      - name: Package Binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: tar -czf FileConfunder-${{ matrix.rid }}.tar.gz -C Confunder/bin/Release/net10.0/${{ matrix.rid }}/publish/ confunder
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FileConfunder-${{ matrix.rid }}
+          path: |
+            FileConfunder-*.zip
+            FileConfunder-*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/FileConfunder-*.zip
+            artifacts/FileConfunder-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
