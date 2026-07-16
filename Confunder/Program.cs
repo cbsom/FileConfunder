@@ -45,8 +45,9 @@ namespace Confunder
         private static string _pattern = "*";
         private static bool _silent = false;
         private const string HELP_TEXT = @"-----------------------------------------------------------------------------------
-Confunder - ""Confunding"" is the process of making it difficult to determine the file type 
-and contents from the byte format to prevent the file from being run normally. 
+Confunder - ""Confunding"" is the process of obfuscating a file in order to
+make it difficult to determine the file type from the byte format and
+partially encrypt the file to prevent the file from being run or viewed normally. 
 -----------------------------------------------------------------------------------
 USAGE: 
     confunder path [-action] [-pattern] [-silent]
