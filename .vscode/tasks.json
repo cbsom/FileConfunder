@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "dotnet",
+			"task": "build C:\\repos_git\\FileConfunder\\Confunder\\Confunder.csproj",
+			"file": "C:\\repos_git\\FileConfunder\\Confunder\\Confunder.csproj",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "build"
+		}
+	]
+}
