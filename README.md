@@ -7,6 +7,12 @@ Its primary purpose is as a good deterrent for an undetermined hacker or a nosy 
 It can make life difficult for someone who shouldn't be looking at your files, but it DOES NOT ENCRYPT the entire file. <br />
 Therefore, you should never use confunder as a fool-proof security tool for protecting objectively sensitive information.
 
+PLEASE USE WITH CAUTION!!!
+<br />
+Running this tool will change the files supplied to it without asking for verification.<br />
+Your files will have the first 4096 bytes of their contents encrypted.<br />
+If you forget or lose the "key" used during obfuscation, you may never be able to recover your full file contents.
+
 It supports:
 
 - Confunding a file
@@ -187,16 +193,13 @@ Examples:
 confunder ./myapp.exe -action confund -silent
 ```
 
-## Exit Behavior
-
-When not in silent mode, Confunder waits for Enter before exiting.
-
-## Project Structure
-
-- Confunder/Program.cs: CLI logic, AES encryption, and file processing flow
-- Confunder.sln: solution
-
 ## Disclaimer
 
 This tool is for controlled environments and operational obscuring workflows.
 It is not a replacement for full cryptographic at-rest protection policies or key-management infrastructure.
+It should never use confunder as a fool-proof security tool for protecting objectively sensitive information.
+
+USE WITH CAUTION!
+This tool changes files without asking you for verification!
+It obfuscates files by encrypting the begining of their contents.
+If you forget or lose the "key" used during obsificutaion, you will never be able to recover your full file contents.
