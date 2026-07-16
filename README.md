@@ -2,9 +2,10 @@
 
 Confunder is a command-line utility that obscures files by transforming their leading bytes into a non-runnable and non-recognizable form, and restores the files to their original state when needed.
 
-Its primary purpose is as a good deterrent for an undetermined hacker or curious individual from accessing your files.
-
-It can make life difficult for someone who shouldn't be looking at your files, but it is NOT a fool-proof high-end security tool and should not be used to protect objectively sensitive information.
+Its primary purpose is as a good deterrent for an undetermined hacker or a nosy individual from accessing your files.
+<br />
+It can make life difficult for someone who shouldn't be looking at your files, but it DOES NOT ENCRYPT the entire file. <br />
+Therefore, you should never use confunder as a fool-proof security tool for protecting objectively sensitive information.
 
 It supports:
 
@@ -12,17 +13,19 @@ It supports:
 - Restoring or "unconfunding" the file
 - Confunding or Unconfunding all files in a folder (with optional pattern filtering)
 - Running a confunded file by temporarily restoring it, then reconfunding it after exit
+- Changing the key used to confund or unconfund files
+- Checking whether a supplied key matches the key stored on the system
 
 ## How It Works
 
-Confunder applies standard AES-ECB encryption to the first 4096 bytes of a file to obscure it without altering the file size, and then appends a marker to the end of the file.
-
-At runtime, it can detect whether a file is already confunded by instantly checking for the marker at the end of the file.
+Confunder applies AES-ECB encryption to the first 4096 bytes of a file to obscure it without altering the file size, and then appends a binary marker to the end of the file.
+<br />
+At runtime, it can detect whether a file is confunded by instantly checking for this marker.
 
 ## Requirements
 
-- .NET SDK that supports net10.0
 - Windows, Linux, or macOS
+- .NET SDK that supports net10.0
 
 ## Build
 
@@ -46,20 +49,22 @@ If you publish or build release binaries, the executable name is confunder.
 
 General form:
 
-confunder path -action <confund|unconfund|run|setkey|help> [options]
+confunder path -action <confund|unconfund|run|setkey|changekey|checkkey|help> [options]
 
 Options:
 
 - -pattern <text>
 - -key <text>
+- -newkey <text>
 - -silent
 
 Notes:
 
-- For file paths, if -action is omitted:
-  - Not yet confunded: it will be confunded
-  - Already confunded: it will be unconfunded, run, then reconfunded
-- For folder paths, -action is required
+- If -action is omitted, the path must be supplied and it must point to a single file, not a folder.
+  <br /> The following action will be taken for this file:
+  - If the path is a single file which is not yet confunded, it will be confunded
+  - If the path is a single file which is confunded, it will be unconfunded and run. On Windows after closing the file, it will be reconfunded.
+- If the path is to a folder, an -action argument needs to be supplied.
 
 ## Actions
 
@@ -103,12 +108,45 @@ confunder ./myfile.txt -action run
 
 ### setkey
 
-Store or rotate the key used for future operations.
+Store the key to be used for any future confunding operations.
+
+Note: any previous key will be overwritten. This will mean that to unconfund any file that was confunded with the previous key, you will need to supply the -key argument with the previous key.
+
+You can change the confund key for any confunded file by using the "changekey" action.
 
 Examples:
 
 ```bash
 confunder . -action setkey -key "my new secret"
+```
+
+### changekey
+
+Change the key used to confund or unconfund the target file or matching files in a folder.
+You can supply the new key in the -newkey argument.
+If you do not supply it, you will be prompted for it. (twice!)
+
+If the file is not currently confunded with the key stored in the system,
+you will need to also supply the -key argument with the key currently confunding the file.
+
+Examples:
+
+```bash
+confunder ./myfile.txt -action changekey -newkey "my new secret"
+```
+
+```bash
+confunder ./allMyFiles -action changekey -pattern "\*.txt" -newkey "my new secret"
+```
+
+### checkkey
+
+Check whether the supplied key matches the key stored in the system.
+
+Examples:
+
+```bash
+confunder . -action checkkey -newkey "my new secret"
 ```
 
 ### help
@@ -128,6 +166,7 @@ confunder . -action help
 - The derived key is encoded in base64 for internal AES encryption operations.
 - When saved using `setkey`, the key is securely encrypted at rest and stored at:
   - LocalApplicationData/Confunder/key.dat
+- When using `changekey` or `checkkey`, supply the comparison key with `-newkey`.
 - **At-Rest Security:**
   - On Windows, Confunder uses native DPAPI (`ProtectedData`) to tie the saved key securely to your user account.
   - On Linux and macOS, Confunder dynamically derives a unique local AES key based on the machine name and username to protect the saved key file from casual observation, and relies on strict OS file permissions.

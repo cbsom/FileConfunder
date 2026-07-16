@@ -61,6 +61,32 @@ namespace Confunder
             SpitOut("{0} has been processed", path);
         }
 
+        public static bool ChangeKeyFile(string path, string key, string newKey)
+        {
+             if (!IsFileConfunded(path))
+            {
+                SpitOut("{0} is not confunded", path);
+                return false;
+            }
+            var unconfunded = ConfundFile(path, key, unconfund: true);
+            var reconfunded = ConfundFile(path, newKey, unconfund: false);
+            var success = unconfunded && reconfunded;
+            SpitOut("{0} has {1} unconfunded and reconfounded with the new key", path,
+            success
+                ? "been successfully"
+                : "FAILED to be");
+            return success;
+        }
+
+        public static void ChangeKeyAll(string path, string key, string newKey, string pattern)
+        {
+             foreach (var f in Directory.GetFiles(path, pattern))
+            {
+                ChangeKeyFile(f, key, newKey);
+            }
+            SpitOut("{0} has been processed", path);
+        }
+
         public static bool ConfundFile(string path, string key, bool unconfund)
         {
             bool success = false;
@@ -88,7 +114,6 @@ namespace Confunder
                 if (unconfund || AppendConfundMarkToFile(path))
                 {
                     success = true;
-
                 }
             }
             catch (Exception ex)
@@ -212,6 +237,6 @@ namespace Confunder
                 result[i] = (byte)(data[i] ^ keystream[i]);
             }
             return result;
-        } 
+        }
     }
 }

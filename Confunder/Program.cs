@@ -10,14 +10,16 @@
  *   confund   - Obfuscate the file or files.
  *   unconfund - Deobfuscate the file or files.
  *   run       - Deobfuscate, run, then obfuscate again.
- *   setkey    - Set or generate the encryption key used for the obfuscation.
+ *   setkey    - Set or generate the encryption key used for the obfuscation on this machine.
+ *   changekey  - Change the encryption key used for the obfuscation on the supplied file/s.
+ *   checkkey  - Check if the supplied key matches the stored key.
  *   help      - Show the help message.
  * 
  * Options:
  *   -key <key>     - Use the specified key (default: stored key).
  *   -silent        - Suppress all console output.
  *   -pattern <pattern> - Use a pattern to find files when the target is a folder.
- * 
+ *   -newkey <newkey> - When changing or checking the key, the new text key to use. * 
  * Examples:
  *   confunder ./myfile.txt -action run
  *   confunder ./myfolder -action run -pattern "*.cs"
@@ -36,6 +38,7 @@ namespace Confunder
     internal static class Program
     {        
         private static string _key = null;
+        private static string _newKey = null;
         private static string _path = null;
         private static bool _isFolder = false;
         private static string _action = null;
@@ -58,6 +61,10 @@ USAGE:
         * ""run"" - run a single file. If it is confunded, unconfunds it first. 
             On Windows: when the app exits, if the file was previously confunded the file is reconfunded.
         * ""setkey"" - update the key stored securely on this machine for future runs.
+        * ""changekey"" - change the key used to confund/unconfund the given file or all the files in a given folder. 
+            The new key can be supplied with the -newkey argument.
+            If path is a folder and -pattern is supplied, only those files matching the pattern will be processed.
+        * ""checkkey"" - check if the supplied -newkey matches the stored key.
         * ""help"" - show this help text
     If -action is not supplied and the path is a single file.
         * If the file was not previously confunded, then the file will be confunded.
@@ -67,6 +74,7 @@ USAGE:
     [-pattern *] For use if the path is a folder. 
         If supplied, only those files within this folder matching the pattern will be processed.
     [-key] A text key to use for confunding and unconfunding the file/s.
+    [-newkey] When changing or checking the key, the new key.
     [-silent] No console output and on Windows the command window is hidden.";
 
         private static void Main(string[] args)
@@ -79,6 +87,29 @@ USAGE:
             {
                 case "setkey":
                     if (!SetKey()) { return; }
+                    break;
+                case "changekey":
+                    if (!EnsureKeyLoaded()) { return; }
+                    if(string.IsNullOrEmpty(_newKey))
+                    {
+                        if (!_silent)
+                        {
+                            _newKey = PromptForKey("Enter the new text key to use for confunding files", confirm: true);
+                        }
+                        else
+                        {
+                            Console.Error.WriteLine("No new key was supplied with the -newkey argument and the app cannot prompt for one in silent mode.");
+                            return;
+                        }
+                    }
+                    if (_isFolder)
+                    {
+                        Confunder.ChangeKeyAll(_path, _key, _newKey, _pattern);
+                    }
+                    else
+                    {
+                        Confunder.ChangeKeyFile(_path, _key, _newKey);
+                    }
                     break;
                 case "confund":
                     if (!EnsureKeyLoaded()) { return; }
@@ -112,6 +143,24 @@ USAGE:
                         RunFile(_path);
                     }
                     break;
+                case "checkkey":
+                    if (!EnsureKeyLoaded()) { return; }
+                    if(string.IsNullOrEmpty(_newKey))
+                    {
+                        SpitOut("To check the key, supply the key to check with the -newkey argument.");
+                    }
+                    else
+                    {
+                        if (_key == _newKey)
+                        {
+                            SpitOut("The supplied key matches the stored key.");
+                        }
+                        else
+                        {
+                            SpitOut("The supplied key does NOT match the stored key.");
+                        }
+                    }
+                    break;
                 default:
                     SpitOut(HELP_TEXT);
                     break;
@@ -135,7 +184,7 @@ USAGE:
                     return false;
                 }
 
-                var legalActions = new string[] { "confund", "unconfund", "run", "setkey", "help" };
+                var legalActions = new string[] { "confund", "unconfund", "run", "setkey", "changekey", "checkkey", "help" };
                 var action = args[actionIndex + 1];
                 if (legalActions.Contains(action.ToLower()))
                 {
@@ -233,6 +282,22 @@ USAGE:
                 }
 
                 _key = derivedKey;
+            }
+            if (args.Contains("-newkey") && (_action == "changekey" || _action == "checkkey"))
+            {
+                if (args.Length < 2 || Array.IndexOf(args, "-newkey") + 1 >= args.Length)
+                {
+                    Console.Error.WriteLine("No new key was supplied with the -newkey argument");
+                    return false;
+                }
+                var rawNewKey = args[Array.IndexOf(args, "-newkey") + 1];
+                if (!TryDeriveBase64Key(rawNewKey, out var derivedNewKey, out var error))
+                {
+                    Console.Error.WriteLine(error);
+                    return false;
+                }
+
+                _newKey = derivedNewKey;
             }
 
             if (args.Contains("-silent"))
@@ -464,6 +529,7 @@ USAGE:
 
             // The cipher expects a 128/192/256-bit AES key. Use SHA-256 to derive a fixed 256-bit key from any text input.
             var keyBytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawKeyText));
+            
             key = Convert.ToBase64String(keyBytes);
             return true;
         }
