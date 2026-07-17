@@ -4,7 +4,7 @@
  * Licensed under the GNU General Public License v3.0.
  * 
  * Usage:
- *   confunder <path> <action> [options]
+ *   confunder <action> [arguments] [options]
  * 
  * Actions:
  *   confund   - Obfuscate the file or files.
@@ -16,17 +16,20 @@
  *   help      - Show the help message.
  * 
  * Options:
- *   -key <key>     - Use the specified key (default: stored key).
- *   -silent        - Suppress all console output.
- *   -pattern <pattern> - Use a pattern to find files when the target is a folder.
- *   -newkey <newkey> - When changing or checking the key, the new text key to use. * 
+ *   -silent              - Suppress all console output.
+ *   -pattern <pattern>   - Use a pattern to find files when the target is a folder.
  * Examples:
- *   confunder ./myfile.txt -action run
- *   confunder ./myfolder -action run -pattern "*.cs"
+ *   confunder confund ./myfolder
+ *   confunder unconfund ./myfolder -pattern "*.cs"
+ *   confunder run ./myfile.txt
+ *   confunder setkey "My New Key"
+ *   confunder changekey ./myfolder "The Old Key" "The New Key"
+ *   confunder checkkey "The Key To Check"
  * 
  *********************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -36,7 +39,7 @@ using System.Text;
 namespace Confunder
 {
     internal static class Program
-    {        
+    {
         private static string _key = null;
         private static string _newKey = null;
         private static string _path = null;
@@ -50,32 +53,31 @@ make it difficult to determine the file type from the byte format and
 partially encrypt the file to prevent the file from being run or viewed normally. 
 -----------------------------------------------------------------------------------
 USAGE: 
-    confunder path [-action] [-pattern] [-silent]
+    confunder <action> [arguments] [options]
 
-    path: The first argument is always the path to a file or folder. 
-          If it is a folder, all files in the folder will be processed.
-    ""-action"" which action to run. The action can be any one of the following values:
-        * ""confund"" - confund the given file or all the files in a given folder. 
+    The first argument must be an action. Supported actions:
+        * ""confund"" - confund the given file or all the files in a given folder.
+            Usage: confunder confund <path> [key]
             If path is a folder and -pattern is supplied, only those files matching the pattern will be processed.
-        * ""unconfund"" - unconfund the given file or all the files in a given folder. 
+        * ""unconfund"" - unconfund the given file or all the files in a given folder.
+            Usage: confunder unconfund <path> [key]
             If path is a folder and -pattern is supplied, only those files matching the pattern will be processed.
-        * ""run"" - run a single file. If it is confunded, unconfunds it first. 
+        * ""run"" - run a single file. If it is confunded, unconfunds it first.
+            Usage: confunder run <path> [key]
             On Windows: when the app exits, if the file was previously confunded the file is reconfunded.
         * ""setkey"" - update the key stored securely on this machine for future runs.
-        * ""changekey"" - change the key used to confund/unconfund the given file or all the files in a given folder. 
-            The new key can be supplied with the -newkey argument.
+            Usage: confunder setkey [key]
+        * ""changekey"" - change the key used to confund/unconfund the given file or all the files in a given folder.
+            Usage: confunder changekey <path> [newKey]
+                   confunder changekey <path> <oldKey> <newKey>
             If path is a folder and -pattern is supplied, only those files matching the pattern will be processed.
-        * ""checkkey"" - check if the supplied -newkey matches the stored key.
+        * ""checkkey"" - check if the supplied key matches the stored key.
+            Usage: confunder checkkey <keyToCheck>
         * ""help"" - show this help text
-    If -action is not supplied and the path is a single file.
-        * If the file was not previously confunded, then the file will be confunded.
-        * If the file was previously confunded, 
-          then the file will be unconfunded and run.
-          If running on Windows, the file will be reconfunded afterwards.
-    [-pattern *] For use if the path is a folder. 
+
+    [key] values are text keys and will be converted into an AES key.
+    [-pattern *] For use with ""confund"", ""unconfund"", and ""changekey"" when the path is a folder.
         If supplied, only those files within this folder matching the pattern will be processed.
-    [-key] A text key to use for confunding and unconfunding the file/s.
-    [-newkey] When changing or checking the key, the new key.
     [-silent] No console output and on Windows the command window is hidden.";
 
         private static void Main(string[] args)
@@ -91,7 +93,7 @@ USAGE:
                     break;
                 case "changekey":
                     if (!EnsureKeyLoaded()) { return; }
-                    if(string.IsNullOrEmpty(_newKey))
+                    if (string.IsNullOrEmpty(_newKey))
                     {
                         if (!_silent)
                         {
@@ -99,7 +101,7 @@ USAGE:
                         }
                         else
                         {
-                            Console.Error.WriteLine("No new key was supplied with the -newkey argument and the app cannot prompt for one in silent mode.");
+                            Console.Error.WriteLine("No new key was supplied and the app cannot prompt for one in silent mode.");
                             return;
                         }
                     }
@@ -146,9 +148,9 @@ USAGE:
                     break;
                 case "checkkey":
                     if (!EnsureKeyLoaded()) { return; }
-                    if(string.IsNullOrEmpty(_newKey))
+                    if (string.IsNullOrEmpty(_newKey))
                     {
-                        SpitOut("To check the key, supply the key to check with the -newkey argument.");
+                        SpitOut("To check the key, supply the key to check as the second argument.");
                     }
                     else
                     {
@@ -176,134 +178,218 @@ USAGE:
                 return false;
             }
 
-            if (args.Contains("-action"))
+            string pattern = null;
+            var positionalArgs = new List<string>();
+            for (var i = 0; i < args.Length; i++)
             {
-                var actionIndex = Array.IndexOf(args, "-action");
-                if (actionIndex < 0 || actionIndex + 1 >= args.Length)
+                var arg = args[i];
+
+                if (string.Equals(arg, "-silent", StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.Error.WriteLine("Invalid action specified");
-                    return false;
+                    _silent = true;
+                    continue;
                 }
 
-                var legalActions = new string[] { "confund", "unconfund", "run", "setkey", "changekey", "checkkey", "help" };
-                var action = args[actionIndex + 1];
-                if (legalActions.Contains(action.ToLower()))
+                if (string.Equals(arg, "-pattern", StringComparison.OrdinalIgnoreCase))
                 {
-                    _action = action.ToLower();
-                }
-                else
-                {
-                    Console.Error.WriteLine("Invalid action specified");
-                    return false;
-                }
-            }
-
-            var actionNeedsPath = _action != "setkey" && _action != "help";
-
-            if (actionNeedsPath)
-            {
-                if (args.Contains("-path"))
-                {
-                    _path = args[Array.IndexOf(args, "-path") + 1];
-                }
-                else
-                {
-                    _path = args[0];
-                }
-
-                if (string.IsNullOrEmpty(_path))
-                {
-                    Console.Error.WriteLine("No file or folder path supplied");
-                    return false;
-                }
-                else
-                {
-                    if (Directory.Exists(_path))
+                    if (i + 1 >= args.Length)
                     {
-                        _isFolder = true;
-                    }
-                    else if (File.Exists(_path))
-                    {
-                        _isFolder = false;
-                    }
-                    else
-                    {
-                        Console.Error.WriteLine("file or folder path supplied could not be found");
+                        Console.Error.WriteLine("No pattern was supplied with the -pattern argument");
                         return false;
                     }
+
+                    pattern = args[++i];
+                    continue;
                 }
 
-                if (string.IsNullOrWhiteSpace(_action))
+                positionalArgs.Add(arg);
+            }
+
+            if (positionalArgs.Count < 1)
+            {
+                Console.Error.WriteLine("No action specified");
+                return false;
+            }
+
+            var firstArg = positionalArgs[0];
+            var legalActions = new[] { "confund", "unconfund", "run", "setkey", "changekey", "checkkey", "help" };
+            if (!legalActions.Contains(firstArg.ToLowerInvariant()))
+            {
+                //If the first argument is a file path, then we will infer the action based on whether the file is confunded or not.
+                if (File.Exists(firstArg))
                 {
-                    if (!_isFolder)
+                    _action = Confunder.IsFileConfunded(firstArg) ? "unconfund" : "confund";
+                    _path = firstArg;
+                    if (positionalArgs.Count == 2) //a key was supplied
                     {
-                        if (Confunder.IsFileConfunded(_path))
+                        if (!TryDeriveBase64Key(positionalArgs[1], out var suppliedKey, out var suppliedKeyError))
                         {
-                            _action = "run";
+                            SpitOut("Invalid <key> supplied for " + _action + ".");
+                            Console.Error.WriteLine(suppliedKeyError);
+                            return false;
                         }
-                        else
-                        {
-                            _action = "confund";
-                        }
+
+                        _key = suppliedKey;
                     }
-                    else
+                    return true;
+                }
+                else
+                {
+                    SpitOut($"Invalid action specified: {firstArg}. Valid actions: confund, unconfund, run, setkey, changekey, checkkey, help");
+                    return false;
+                }
+            }
+            else
+            {
+                _action = firstArg.ToLowerInvariant();
+            }
+
+            var values = positionalArgs.Skip(1).ToArray();
+
+            if (pattern != null)
+            {
+                if (_action != "confund" && _action != "unconfund" && _action != "changekey")
+                {
+                    Console.Error.WriteLine("The -pattern argument is only valid for confund, unconfund, and changekey.");
+                    return false;
+                }
+
+                _pattern = pattern;
+            }
+
+            switch (_action)
+            {
+                case "setkey":
+                    if (values.Length > 1)
                     {
-                        Console.Error.WriteLine($"{_path} is a directory and the -action argument has not been supplied");
-                        _action = "help";
+                        SpitOut("Too many arguments supplied for setkey.");
                         return false;
                     }
-                }
+
+                    if (values.Length == 1)
+                    {
+                        if (!TryDeriveBase64Key(values[0], out var setKey, out var setKeyError))
+                        {
+                            SpitOut("Invalid key supplied for setkey.");
+                            Console.Error.WriteLine(setKeyError);
+                            return false;
+                        }
+
+                        _key = setKey;
+                    }
+                    break;
+
+                case "checkkey":
+                    if (values.Length != 1)
+                    {
+                        SpitOut("The checkkey action requires exactly one key argument.");
+                        return false;
+                    }
+
+                    if (!TryDeriveBase64Key(values[0], out var checkKey, out var checkKeyError))
+                    {
+                        SpitOut("Invalid key supplied for checkkey.");
+                        Console.Error.WriteLine(checkKeyError);
+                        return false;
+                    }
+
+                    _newKey = checkKey;
+                    break;
+
+                case "confund":
+                case "unconfund":
+                case "run":
+                    if (values.Length < 1 || values.Length > 2)
+                    {
+                        SpitOut($"The {_action} action format is: confunder {_action} <path> and optionally [<key>].");
+                        return false;
+                    }
+
+                    _path = values[0];
+                    if (!TryResolvePath(_path, out _isFolder))
+                    {
+                        return false;
+                    }
+
+                    if (values.Length == 2)
+                    {
+                        if (!TryDeriveBase64Key(values[1], out var suppliedKey, out var suppliedKeyError))
+                        {
+                            SpitOut("Invalid <key> supplied for " + _action + ".");
+                            Console.Error.WriteLine(suppliedKeyError);
+                            return false;
+                        }
+
+                        _key = suppliedKey;
+                    }
+
+                    if (pattern != null && _action == "run")
+                    {
+                        SpitOut("The run action does not support -pattern.");
+                        return false;
+                    }
+
+                    if (pattern != null && !_isFolder)
+                    {
+                        SpitOut($"{_path} is not a directory and the pattern has been supplied");
+                        return false;
+                    }
+                    break;
+
+                case "changekey":
+                    if (values.Length < 1 || values.Length > 3)
+                    {
+                        SpitOut("The changekey action requires <path> and supports [newKey] or <oldKey> <newKey>.");
+                        return false;
+                    }
+
+                    _path = values[0];
+                    if (!TryResolvePath(_path, out _isFolder))
+                    {
+                        return false;
+                    }
+
+                    if (pattern != null && !_isFolder)
+                    {
+                        SpitOut($"{_path} is not a directory and the pattern has been supplied");
+                        return false;
+                    }
+
+                    if (values.Length == 2)
+                    {
+                        if (!TryDeriveBase64Key(values[1], out var newKeyOnly, out var newKeyOnlyError))
+                        {
+                            SpitOut("Invalid <key> supplied for " + _action + ".");
+                            Console.Error.WriteLine(newKeyOnlyError);
+                            return false;
+                        }
+
+                        _newKey = newKeyOnly;
+                    }
+                    else if (values.Length == 3)
+                    {
+                        if (!TryDeriveBase64Key(values[1], out var oldKey, out var oldKeyError))
+                        {
+                            SpitOut("Invalid <key> supplied for the existing key for " + _action + ".");
+                            Console.Error.WriteLine(oldKeyError);
+                            return false;
+                        }
+
+                        if (!TryDeriveBase64Key(values[2], out var newKey, out var newKeyError))
+                        {
+                            SpitOut("Invalid <key> supplied as the new key for " + _action + ".");
+                            Console.Error.WriteLine(newKeyError);
+                            return false;
+                        }
+
+                        _key = oldKey;
+                        _newKey = newKey;
+                    }
+                    break;
             }
 
-            if (args.Contains("-pattern"))
+            if (_silent)
             {
-                if (actionNeedsPath && _isFolder)
-                {
-                    _pattern = args[Array.IndexOf(args, "-pattern") + 1];
-                }
-                else if (actionNeedsPath)
-                {
-                    Console.Error.WriteLine($"{_path} is not a directory and the pattern has been supplied");
-                    _action = "help";
-                    return false;
-                }
-            }
-            if (args.Contains("-key"))
-            {
-                if (args.Length < 2 || Array.IndexOf(args, "-key") + 1 >= args.Length)
-                {
-                    Console.Error.WriteLine("No key was supplied with the -key argument");
-                    return false;
-                }
-                var rawKey = args[Array.IndexOf(args, "-key") + 1];
-                if (!TryDeriveBase64Key(rawKey, out var derivedKey, out var error))
-                {
-                    Console.Error.WriteLine(error);
-                    return false;
-                }
-
-                _key = derivedKey;
-            }
-            if (args.Contains("-newkey") && (_action == "changekey" || _action == "checkkey"))
-            {
-                if (args.Length < 2 || Array.IndexOf(args, "-newkey") + 1 >= args.Length)
-                {
-                    Console.Error.WriteLine("No new key was supplied with the -newkey argument");
-                    return false;
-                }
-                var rawNewKey = args[Array.IndexOf(args, "-newkey") + 1];
-                if (!TryDeriveBase64Key(rawNewKey, out var derivedNewKey, out var error))
-                {
-                    Console.Error.WriteLine(error);
-                    return false;
-                }
-
-                _newKey = derivedNewKey;
-            }
-
-            if (args.Contains("-silent"))
-            {
-                _silent = true;
                 try
                 {
                     if (OperatingSystem.IsWindows())
@@ -319,6 +405,32 @@ USAGE:
             }
 
             return true;
+        }
+
+        private static bool TryResolvePath(string path, out bool isFolder)
+        {
+            isFolder = false;
+
+            if (string.IsNullOrEmpty(path))
+            {
+                SpitOut("No file or folder path supplied");
+                return false;
+            }
+
+            if (Directory.Exists(path))
+            {
+                isFolder = true;
+                return true;
+            }
+
+            if (File.Exists(path))
+            {
+                isFolder = false;
+                return true;
+            }
+
+            SpitOut("file or folder path supplied could not be found");
+            return false;
         }
 
         private static void SpitOut(string txt, params object[] par)
@@ -404,7 +516,7 @@ USAGE:
 
         private static bool SetKey()
         {
-            //If -key was supplied, it was saved in the _key variable by the ProcessArgs method.
+            // If a key argument was supplied, it was saved in _key by ProcessArgs.
             if (string.IsNullOrEmpty(_key))
             {
                 if (!_silent)
@@ -414,7 +526,7 @@ USAGE:
                 }
                 else
                 {
-                    Console.Error.WriteLine("No key was supplied with the -key argument and the app cannot prompt for one in silent mode.");
+                    Console.Error.WriteLine("No key was supplied and the app cannot prompt for one in silent mode.");
                     return false;
                 }
             }
@@ -530,7 +642,7 @@ USAGE:
 
             // The cipher expects a 128/192/256-bit AES key. Use SHA-256 to derive a fixed 256-bit key from any text input.
             var keyBytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawKeyText));
-            
+
             key = Convert.ToBase64String(keyBytes);
             return true;
         }
