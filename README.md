@@ -1,6 +1,6 @@
 # Confunder
 
-Confunder is a command-line utility that obscures files by transforming their leading bytes into a non-runnable and non-recognizable form, and restores the files to their original state when needed.
+Confunder is a blazingly fast command-line utility that obscures and secures files by encrypting their leading bytes into a non-runnable and non-recognizable form, and restores the files to their original state when needed.
 
 Its primary purpose is as a good deterrent for an undetermined hacker or a nosy individual from accessing your files.
 <br />
@@ -15,9 +15,9 @@ If you forget or lose the "key" used during obfuscation, you may never be able t
 
 It supports:
 
-- Confunding a file
-- Restoring or "unconfunding" the file
-- Confunding or Unconfunding all files in a folder (with optional pattern filtering)
+- Obscuficate or "confund" or  a file
+- Restore or "unconfund" the file
+- Confunding or unconfunding all files in a folder (with optional pattern filtering)
 - Running a confunded file by temporarily restoring it, then reconfunding it after exit
 - Changing the key used to confund or unconfund files
 - Checking whether a supplied key matches the key stored on the system
@@ -26,12 +26,11 @@ It supports:
 
 Confunder applies AES-ECB encryption to the first 4096 bytes of a file to obscure it without altering the file size, and then appends a binary marker to the end of the file.
 <br />
-At runtime, it can detect whether a file is confunded by instantly checking for this marker.
+At runtime, it detects whether a file is confunded by instantly checking for this marker.
 
 ## Requirements
 
 - Windows, Linux, or macOS
-- .NET SDK that supports net10.0
 
 ## Build
 
@@ -40,16 +39,6 @@ From repository root:
 ```bash
 dotnet build Confunder.sln
 ```
-
-## Run
-
-From repository root:
-
-```bash
-dotnet run --project Confunder/Confunder.csproj -- <arguments>
-```
-
-If you publish or build release binaries, the executable name is confunder.
 
 ## Usage
 
