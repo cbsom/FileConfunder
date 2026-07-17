@@ -66,15 +66,14 @@ Notes:
 - If the first argument is a path to a single file, 
 a previously *confunded* file will be *unconfunded* and a previously *unconfunded* file will be *confunded*.
 - The actions ***confund***, ***unconfund***, ***run*** and ***changekey*** can optionally have a [key] supplied for the action.
-<br />
-If the [key] is not supplied, the [key] stored on the current system will be used for the operation.
-- The -***-*** option is valid only for ***confund***, ***unconfund***, and ***changekey*** when the path is a folder.
+- If the [key] is not supplied, the [key] stored on the current system will be used for the operation.
+- The ***-pattern*** option is valid only for ***confund***, ***unconfund***, and ***changekey*** when the path is a folder.
 
 ## Actions
 
 ### ***confund***
 
-Obscuficate or "confund" a file or all matching files in a folder.
+Obscuficate or *confund* a file or all matching files in a folder.
 
 Examples:
 
