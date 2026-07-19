@@ -78,6 +78,7 @@ USAGE:
     [key] values are text keys and will be converted into an AES key.
     [-pattern *] For use with ""confund"", ""unconfund"", and ""changekey"" when the path is a folder.
         If supplied, only those files within this folder matching the pattern will be processed.
+    [-all] Completely encrypt the file instead of just obfuscating it. This will make the file impossible to run or view without unconfunding it first.
     [-silent] No console output and on Windows the command window is hidden.";
 
         private static void Main(string[] args)
@@ -507,9 +508,7 @@ USAGE:
             if (string.IsNullOrEmpty(key))
             {
                 return false;
-            }
-
-            SaveStoredKey(key);
+            }            
             _key = key;
             return true;
         }
